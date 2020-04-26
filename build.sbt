@@ -1,6 +1,37 @@
 name := "fantasy-population-generator"
 
-version := "0.1"
+inThisBuild(
+  List(
+    organization := "com.github.BraianIDeRoo",
+    homepage := Some(
+      url("https://github.com/BraianIDeRoo/population-generator-lib")
+    ),
+    licenses := List(
+      "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
+    ),
+    developers := List(
+      Developer(
+        "BraianIDeRoo",
+        "Braian De Roo",
+        "braianideroo@gmail.com",
+        url("https://github.com/BraianIDeRoo")
+      )
+    ),
+    scmInfo := Some(
+      ScmInfo(
+        url("https://github.com/BraianIDeRoo/population-generator-lib"),
+        "git@github.com:BraianIDeRoo/population-generator-lib.git"
+      )
+    )
+  )
+)
+
+publishTo := Some(
+  if (isSnapshot.value)
+    Opts.resolver.sonatypeSnapshots
+  else
+    Opts.resolver.sonatypeStaging
+)
 
 scalaVersion := "2.13.1"
 
