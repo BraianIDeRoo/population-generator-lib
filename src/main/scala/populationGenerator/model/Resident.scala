@@ -134,6 +134,8 @@ object Resident {
 
   def fromSpouseConfig(
     spouse: Resident,
+    children: Iterable[Resident],
+    parents: Iterable[Resident],
     generatorSettings: GeneratorSettings,
     spouseSettings: SpouseSettings[GeneratorSettings]
   ): ZIO[SeedRandom, Nothing, Option[Resident]] = {
@@ -179,6 +181,9 @@ object Resident {
           _ <- tempSpouse.maybeTraits.set(Some(traits))
           _ <- addLayerRef(layer, job, tempSpouse.maybeJob)
           _ <- addLayerRef(layer, gender, tempSpouse.maybeGender)
+          _ <- tempSpouse.maybeSpouse.set(Some(Some(spouse)))
+          _ <- tempSpouse.maybeParents.set(Some(parents))
+          _ <- tempSpouse.maybeChildren.set(Some(children))
           aux <- tempSpouse.toResident
         } yield aux
       } else ZIO.none

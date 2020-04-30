@@ -32,8 +32,6 @@ package object populationGenerator {
 
   object PopulationGenerator {
 
-    case class Population(sectors: Map[TownSector, Vector[Building]])
-
     trait Service {
       def generatePopulation(n: Int): ZIO[Any, GeneratorError, Population]
     }
@@ -103,6 +101,8 @@ package object populationGenerator {
                   for {
                     spouse <- Resident.fromSpouseConfig(
                       resident,
+                      resident.children,
+                      List(),
                       configuration.generatorSettings,
                       configuration.spouseSettings
                     )
