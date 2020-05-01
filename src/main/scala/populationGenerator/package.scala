@@ -56,12 +56,13 @@ package object populationGenerator {
           new Service {
 
             private def getSectorForBuilding(building: Building) = {
-              val sectorChance: Probabilities[Int] =
-                Map(0 -> 90.0, 1 -> 5.0, -1 -> 5.0)
+              val sectorChance: List[(Int, Double)] =
+                List((0, 90.0), (1, 5.0), (-1, 5.0))
+              Map(0 -> 90.0, 1 -> 5.0, -1 -> 5.0)
 
               val headResident = building.residents.head
 
-              RandomValue.fromMap(sectorChance).map(_.get) >>= {
+              RandomValue.fromSimpleIterable(sectorChance).map(_.get) >>= {
                 case 0  => ZIO.succeed(headResident.ses.current)
                 case 1  => ZIO.succeed(headResident.ses.higher)
                 case -1 => ZIO.succeed(headResident.ses.lower)
