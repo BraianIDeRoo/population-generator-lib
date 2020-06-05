@@ -33,7 +33,7 @@ publishTo := Some(
     Opts.resolver.sonatypeStaging
 )
 
-scalaVersion := "2.13.1"
+scalaVersion := "2.13.2"
 
 val zioVersion = "1.0.0-RC18-2"
 libraryDependencies ++= Seq(
