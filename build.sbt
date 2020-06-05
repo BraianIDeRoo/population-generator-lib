@@ -33,13 +33,37 @@ publishTo := Some(
     Opts.resolver.sonatypeStaging
 )
 
-scalaVersion := "2.13.2"
+ThisBuild / scalaVersion := "2.13.2"
+
+skip in publish := true
 
 val zioVersion = "1.0.0-RC20"
-libraryDependencies ++= Seq(
-  "dev.zio" %% "zio" % zioVersion,
-  "dev.zio" %% "zio-test" % zioVersion % "test",
-  "dev.zio" %% "zio-test-sbt" % zioVersion % "test",
-  "com.github.BraianIDeRoo" % "random-util_2.13" % "0.5.2"
-)
-testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+
+val fantasyPopulationGenerator = crossProject(JSPlatform, JVMPlatform)
+  .in(file("."))
+  .settings(
+    name := "fantasy-population-generator",
+    version := "0.2.1",
+    libraryDependencies ++= Seq(
+      "dev.zio" %%% "zio" % zioVersion,
+      "dev.zio" %%% "zio-test" % zioVersion % "test",
+      "dev.zio" %%% "zio-test-sbt" % zioVersion % "test",
+      "com.github.BraianIDeRoo" %%% "random-util" % "0.5.2"
+    ),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    publishTo := Some(
+      if (isSnapshot.value)
+        Opts.resolver.sonatypeSnapshots
+      else
+        Opts.resolver.sonatypeStaging
+    )
+  )
+  .jsSettings(
+    scalaJSUseMainModuleInitializer := true,
+    libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.0.0"
+  )
+
+lazy val root = project
+  .in(file("."))
+  .aggregate(fantasyPopulationGenerator.js, fantasyPopulationGenerator.jvm)
+  .settings(scalaVersion := "2.13.2", publish := {}, publishLocal := {})
