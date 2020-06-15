@@ -15,12 +15,11 @@
  */
 
 import braianideroo.random.SeedRandom
-import braianideroo.random.value.{Probabilities, RandomVIO, RandomValue}
+import braianideroo.random.value.{RandomVIO, RandomValue}
 import populationGenerator.model.Config.{
   BuildingGeneratorSetting,
-  ChildSettings,
   GeneratorSettings,
-  SpouseSettings
+  TempRelation
 }
 import populationGenerator.model._
 import populationGenerator.model.error.GeneratorError
@@ -36,12 +35,8 @@ package object populationGenerator {
       def generatePopulation(n: Int): ZIO[Any, GeneratorError, Population]
     }
 
-    case class PopulationConfigLive(
-      generatorSettings: GeneratorSettings,
-      spouseSettings: SpouseSettings[GeneratorSettings],
-      childSettings: ChildSettings[GeneratorSettings],
-      buildingSettings: BuildingGeneratorSetting
-    )
+    case class PopulationConfigLive(generatorSettings: GeneratorSettings,
+                                    buildingSettings: BuildingGeneratorSetting)
 
     val live: ZLayer[Has[PopulationConfigLive] with SeedRandom,
                      Nothing,
@@ -60,7 +55,7 @@ package object populationGenerator {
                 List((0, 90.0), (1, 5.0), (-1, 5.0))
               Map(0 -> 90.0, 1 -> 5.0, -1 -> 5.0)
 
-              val headResident = building.residents.head
+              val headResident = building.family.residents.head
 
               RandomValue.fromSimpleIterable(sectorChance).map(_.get) >>= {
                 case 0  => ZIO.succeed(headResident.ses.current)
@@ -92,63 +87,77 @@ package object populationGenerator {
             }
 
             private def generateFamily(
-              resident: Resident
-            ): ZIO[SeedRandom,
-                   GeneratorError,
-                   (Resident, Option[Resident], List[Resident])] = {
-              resident.age match {
-                case Child => ZIO.succeed((resident, None, List()))
-                case Adult | Elderly =>
-                  for {
-                    spouse <- Resident.fromSpouseConfig(
-                      resident,
-                      resident.children,
-                      List(),
-                      configuration.generatorSettings,
-                      configuration.spouseSettings
-                    )
-                    childNumber <- configuration.generatorSettings.childrenPerFamily
-                    children <- ZIO.foreach(0 until childNumber)(
-                      _ =>
-                        Resident.fromChildSettings(
-                          List(resident) ++ spouse,
-                          configuration.generatorSettings,
-                          configuration.childSettings
-                      )
-                    )
-                    newResident = resident.copy(
-                      spouse = spouse,
-                      children = children
-                    )
-                    newSpouse = spouse.map(x => x.copy(children = children))
-                  } yield (newResident, newSpouse, children)
+              tempFamily: TempFamily,
+              resident: Resident,
+              generatorSettings: GeneratorSettings
+            ): ZIO[SeedRandom, GeneratorError, Family] = {
+
+              def inner(
+                tempFamily: TempFamily,
+                relationships: List[(Relationship, Int)]
+              ): ZIO[SeedRandom, GeneratorError, Unit] = {
+                relationships match {
+                  case Nil => ZIO.unit
+                  case ::(head, next) =>
+                    if (head._2 > 0) {
+                      val newHead = (head._1, head._2 - 1)
+                      (for {
+                        newResident <- Resident(
+                          generatorSettings,
+                          tempFamily,
+                          Some(head._1, resident)
+                        )
+                        _ <- tempFamily.addResident(newResident)
+                      } yield ()) *> inner(tempFamily, next.+:(newHead))
+                    } else inner(tempFamily, next)
+                }
               }
+
+              val residentLayer = ZLayer.succeed(resident)
+              val tempFamilyLayer = ZLayer.succeed(tempFamily)
+              val noRelation = ZLayer.succeed[Option[TempRelation]](None)
+              val fullLayer = residentLayer ++ tempFamilyLayer ++ noRelation
+              for {
+                relationshipNumbers <- generatorSettings.residentsPerRelation
+                  .provideSomeLayer[SeedRandom](fullLayer)
+                orderedRelationships = relationshipNumbers.toList
+                  .sortBy(_._1._1)
+                  .map(x => (x._1._2, x._2))
+                _ <- tempFamily.addResident(resident)
+                _ <- inner(tempFamily, orderedRelationships)
+                family <- tempFamily.toFamily
+              } yield family
             }
 
             override def generatePopulation(
               n: Int
             ): ZIO[Any, GeneratorError, Population] = {
               val loop = for {
-                resident <- Resident.fromConfig(
+                tempFamily <- TempFamily.apply
+                resident <- Resident(
                   configuration.generatorSettings,
-                  None,
-                  List(),
+                  tempFamily,
                   None
                 )
                 _ <- resident.age match {
                   case Adult | Elderly =>
                     for {
-                      family <- generateFamily(resident)
-                      all = List(family._1) ++ family._2 ++ family._3
+                      family <- generateFamily(
+                        tempFamily,
+                        resident,
+                        configuration.generatorSettings
+                      )
+                      all = family.residents
                       building <- Building.fromConfig(
-                        all,
+                        family,
                         configuration.buildingSettings
                       )
                       _ <- residents.update(_ ++ all)
                       _ <- buildings.update(_ :+ building)
                     } yield ()
                   case Child =>
-                    val building = Building.apply(Seq(resident), "none", None)
+                    val family = Family.apply(Vector(resident), Map())
+                    val building = Building.apply(family, "none", None)
                     for {
                       _ <- residents.update(_ :+ resident)
                       _ <- buildings.update(_ :+ building)

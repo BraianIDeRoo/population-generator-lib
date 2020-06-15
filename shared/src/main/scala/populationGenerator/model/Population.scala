@@ -20,7 +20,7 @@ import zio.{Ref, ZIO}
 
 case class Population(sectors: Map[TownSector, Vector[Building]]) {
   def allResidents: Iterable[Resident] =
-    sectors.values.flatMap(_.flatMap(_.residents))
+    sectors.values.flatMap(_.flatMap(_.family.residents))
 
   private def updateMap[A](map: Ref[Map[A, Int]],
                            x: Option[A]): ZIO[Any, Nothing, Unit] =
