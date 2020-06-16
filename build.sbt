@@ -43,7 +43,7 @@ val fantasyPopulationGenerator = crossProject(JSPlatform, JVMPlatform)
   .in(file("."))
   .settings(
     name := "fantasy-population-generator",
-    version := "0.2.2",
+    version := "0.3.0",
     libraryDependencies ++= Seq(
       "dev.zio" %%% "zio" % zioVersion,
       "dev.zio" %%% "zio-test" % zioVersion % "test",
