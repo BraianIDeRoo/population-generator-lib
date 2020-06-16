@@ -21,11 +21,11 @@ import zio.{IO, Ref, ZIO, ZLayer}
 case class ResidentPair(origin: Resident, target: Resident)
 
 case class Family(residents: Vector[Resident],
-                  relationships: Map[(Resident, Resident), List[Relationship]])
+                  relationships: Map[ResidentPair, List[Relationship]])
 
 case class TempFamily(
   tempResidents: Ref[Vector[Resident]],
-  tempRelationships: Ref[Map[(Resident, Resident), List[Relationship]]]
+  tempRelationships: Ref[Map[ResidentPair, List[Relationship]]]
 ) {
   def toFamily: ZIO[Any, Nothing, Family] =
     for {
@@ -53,17 +53,20 @@ case class TempFamily(
     target: Resident,
     relationShip: Relationship
   ): ZIO[Any, Nothing, Unit] =
-    tempRelationships.update(
-      x =>
-        x + ((origin, target) -> (
-          x.get((origin, target)) match {
-            case Some(value) =>
-              if (value.contains(relationShip)) value
-              else value :+ relationShip
-            case None => List(relationShip)
-          }
-        ))
-    ) *> updateRelationships()
+    for {
+      tempRels <- tempRelationships.get
+      residentPair = ResidentPair(origin, target)
+      _ <- tempRels.get(residentPair) match {
+        case Some(value) =>
+          if (value.contains(relationShip)) ZIO.unit
+          else
+            tempRelationships.update(
+              _ + (residentPair -> (value :+ relationShip))
+            ) *> updateRelationships()
+        case None =>
+          tempRelationships.update(_ + (residentPair -> List(relationShip))) *> updateRelationships()
+      }
+    } yield ()
 
   def addTwoWayRelationship(
     origin: Resident,
