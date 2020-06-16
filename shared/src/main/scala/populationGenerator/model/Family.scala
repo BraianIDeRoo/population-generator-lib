@@ -18,6 +18,8 @@ package populationGenerator.model
 
 import zio.{IO, Ref, ZIO, ZLayer}
 
+case class ResidentPair(origin: Resident, target: Resident)
+
 case class Family(residents: Vector[Resident],
                   relationships: Map[(Resident, Resident), List[Relationship]])
 
@@ -78,6 +80,6 @@ object TempFamily {
     for {
       tempResidents <- Ref.make[Vector[Resident]](Vector())
       tempRelationships <- Ref
-        .make[Map[(Resident, Resident), List[Relationship]]](Map())
+        .make[Map[ResidentPair, List[Relationship]]](Map())
     } yield TempFamily(tempResidents, tempRelationships)
 }

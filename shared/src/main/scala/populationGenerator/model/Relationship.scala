@@ -21,7 +21,7 @@ import zio.{Has, ZIO}
 case class Relationship(
   originName: String,
   targetName: String,
-  onAdded: ZIO[Has[TempFamily] with Has[(Resident, Resident)], Nothing, Unit]
+  onAdded: ZIO[Has[TempFamily] with Has[ResidentPair], Nothing, Unit]
 )
 
 object Relationship {
@@ -35,36 +35,26 @@ object Relationship {
       "spouse",
       for {
         tempFamily <- ZIO.access[Has[TempFamily]](_.get)
-        affectedResidents <- ZIO.access[Has[(Resident, Resident)]](_.get)
+        affectedResidents <- ZIO.access[Has[ResidentPair]](_.get)
         tempRelations <- tempFamily.tempRelationships.get
-        aux = tempRelations.filter(x => x._1._1 == affectedResidents._2)
+        aux = tempRelations.filter(
+          pairRelations => pairRelations._1.origin == affectedResidents.target
+        )
         aux2 = aux.filter(
-          x =>
-            x._2.exists(y => y.originName == "parent") && !tempRelations
-              .contains((affectedResidents._1, x._1._2))
-        )
-        _ <- ZIO.foreach_(aux2)(
-          x =>
-            tempFamily.addTwoWayRelationship(
-              affectedResidents._1,
-              x._1._2,
-              parentRelationship
-          )
-        )
-        /*
-        _ <- ZIO.collect(tempRelations) {
-          case ((affectedResidents._2, other), relation)
-              if relation.originName == "parent" && !tempRelations
-                .contains((affectedResidents._1, other)) =>
-            tempFamily.addTwoWayRelationship(
-              affectedResidents._1,
-              other,
-              parentRelationship
+          pairRelations =>
+            pairRelations._2
+              .exists(_.originName == "parent") && !tempRelations
+              .contains(
+                ResidentPair(affectedResidents.origin, pairRelations._1.target)
             )
-          case _ => ZIO.fail(None)
+        )
+        _ <- ZIO.foreach_(aux2) { pairRelations =>
+          tempFamily.addTwoWayRelationship(
+            affectedResidents.origin,
+            pairRelations._1.target,
+            parentRelationship
+          )
         }
-
-       */
 
       } yield ()
     )

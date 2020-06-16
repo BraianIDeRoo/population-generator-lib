@@ -22,7 +22,6 @@ import zio.{Has, ZIO}
 
 object Config {
 
-  //type Relationship = (String, String)
   type TempRelation = (Relationship, Resident)
   type GenerationOrder = Int
   type GeneratorSettingsEnv =
@@ -41,6 +40,7 @@ object Config {
     def jobs: RandomValue[GeneratorSettingsEnv, Nothing, Option[String]]
     def genders: RandomValue[GeneratorSettingsEnv, Nothing, String]
     def traitsPerResident: RandomValue[GeneratorSettingsEnv, Nothing, Int]
+    // TODO multiple relationships per resident pair
     def residentsPerRelation
       : RandomValue[CompletedGeneratorSettingsEnv,
                     Nothing,
