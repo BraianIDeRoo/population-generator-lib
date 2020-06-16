@@ -21,18 +21,18 @@ import populationGenerator.model.Config.BuildingGeneratorSetting
 import populationGenerator.model.error.GeneratorError
 import zio.{ZIO, ZLayer}
 
-case class Building(residents: Iterable[Resident],
+case class Building(family: Family,
                     buildingType: String,
                     subtype: Option[String]) {}
 
 object Building {
   def fromConfig(
-    residents: Iterable[Resident],
+    family: Family,
     config: BuildingGeneratorSetting
   ): ZIO[SeedRandom, GeneratorError, Building] =
     for {
       bt <- config.buildingType
       btLayer = ZLayer.succeed(bt)
       subtype <- config.buildingSubType.provideSomeLayer[SeedRandom](btLayer)
-    } yield Building(residents, bt, subtype)
+    } yield Building(family, bt, subtype)
 }

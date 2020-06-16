@@ -37,6 +37,21 @@ object Relationship {
         tempFamily <- ZIO.access[Has[TempFamily]](_.get)
         affectedResidents <- ZIO.access[Has[(Resident, Resident)]](_.get)
         tempRelations <- tempFamily.tempRelationships.get
+        aux = tempRelations.filter(x => x._1._1 == affectedResidents._2)
+        aux2 = aux.filter(
+          x =>
+            x._2.exists(y => y.originName == "parent") && !tempRelations
+              .contains((affectedResidents._1, x._1._2))
+        )
+        _ <- ZIO.foreach_(aux2)(
+          x =>
+            tempFamily.addTwoWayRelationship(
+              affectedResidents._1,
+              x._1._2,
+              parentRelationship
+          )
+        )
+        /*
         _ <- ZIO.collect(tempRelations) {
           case ((affectedResidents._2, other), relation)
               if relation.originName == "parent" && !tempRelations
@@ -48,6 +63,9 @@ object Relationship {
             )
           case _ => ZIO.fail(None)
         }
+
+       */
+
       } yield ()
     )
 }

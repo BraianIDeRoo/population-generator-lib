@@ -19,11 +19,11 @@ package populationGenerator.model
 import zio.{IO, Ref, ZIO, ZLayer}
 
 case class Family(residents: Vector[Resident],
-                  relationships: Map[(Resident, Resident), Relationship])
+                  relationships: Map[(Resident, Resident), List[Relationship]])
 
 case class TempFamily(
   tempResidents: Ref[Vector[Resident]],
-  tempRelationships: Ref[Map[(Resident, Resident), Relationship]]
+  tempRelationships: Ref[Map[(Resident, Resident), List[Relationship]]]
 ) {
   def toFamily: ZIO[Any, Nothing, Family] =
     for {
@@ -41,7 +41,7 @@ case class TempFamily(
       _ <- ZIO.foreach_(relationships) { x =>
         val affectedResidentsLayer = ZLayer.succeed(x._1)
         val fullLayer = familyLayer ++ affectedResidentsLayer
-        x._2.onAdded.provideLayer(fullLayer)
+        ZIO.foreach_(x._2)(_.onAdded.provideLayer(fullLayer))
       }
     } yield ()
   }
@@ -51,17 +51,25 @@ case class TempFamily(
     target: Resident,
     relationShip: Relationship
   ): ZIO[Any, Nothing, Unit] =
-    tempRelationships.update(_ + ((origin, target) -> relationShip)) *> updateRelationships()
+    tempRelationships.update(
+      x =>
+        x + ((origin, target) -> (
+          x.get((origin, target)) match {
+            case Some(value) =>
+              if (value.contains(relationShip)) value
+              else value :+ relationShip
+            case None => List(relationShip)
+          }
+        ))
+    ) *> updateRelationships()
 
   def addTwoWayRelationship(
     origin: Resident,
     target: Resident,
     relationShip: Relationship
   ): ZIO[Any, Nothing, Unit] =
-    tempRelationships.update(
-      x =>
-        (x + ((origin, target) -> relationShip)) + ((target, origin) -> relationShip)
-    ) *> updateRelationships()
+    addOneWayRelationship(origin, target, relationShip) *>
+      addOneWayRelationship(target, origin, relationShip)
 
 }
 
@@ -70,6 +78,6 @@ object TempFamily {
     for {
       tempResidents <- Ref.make[Vector[Resident]](Vector())
       tempRelationships <- Ref
-        .make[Map[(Resident, Resident), Relationship]](Map())
+        .make[Map[(Resident, Resident), List[Relationship]]](Map())
     } yield TempFamily(tempResidents, tempRelationships)
 }
